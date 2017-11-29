@@ -430,6 +430,7 @@ namespace GFabAddIn
             MSProject.Task subTask = null;
             subTask = project.Tasks.Add(activityList[i].Aname + '-' + girdernames[0], iTaskIndex++);
             subTask.Text1 = activityList[i].Aname;
+            subTask.Text2 = bridge.BName;
 
             int startIndex = nameIndexbySeq(bridge)[0];
             int signIndex = nameIndexbySeq(bridge)[1];
@@ -464,7 +465,7 @@ namespace GFabAddIn
             return iTaskIndex;
         }
 
-        private int ActFieldSplice(MSProject.Project project, List<Activity> activityList, int iTaskIndex, int i, List<string> girdernames)
+        private int ActFieldSplice(MSProject.Project project, List<Activity> activityList, int iTaskIndex, int i, List<string> girdernames, bridgeParas bridge)
         {
             MSProject.Task subTask = null;
             string name = "-";
@@ -478,6 +479,7 @@ namespace GFabAddIn
             }
             subTask = project.Tasks.Add(activityList[i].Aname + name, iTaskIndex++);
             subTask.Text1 = activityList[i].Aname;
+            subTask.Text2 = bridge.BName;
 
             if (i == 0)
             {
@@ -625,7 +627,7 @@ namespace GFabAddIn
                         }
                         else if (girdernames.Count == int.Parse(bridge.BFieldsplice))
                         {
-                            iTaskIndex = ActFieldSplice(project, activityList, iTaskIndex, i, girdernames);
+                            iTaskIndex = ActFieldSplice(project, activityList, iTaskIndex, i, girdernames, bridge);
                         }
                         
                     }
@@ -766,6 +768,7 @@ namespace GFabAddIn
             else if ((int)(project.ProjectStart - Convert.ToDateTime(bridge.SchedStart)).TotalMinutes > 0)
                 project.ProjectStart = bridge.SchedStart;
             project.Application.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText1, "Station", Type.Missing);
+            project.Application.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText2, "Project Name", Type.Missing);
 
             MSProject.Task task = null;
             //project.ProjectStart = "01/01/2016 8:00AM";
@@ -782,6 +785,7 @@ namespace GFabAddIn
         {
             MSProject.Task task = null;
             project.Application.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText1, "Station", Type.Missing);
+            project.Application.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText2, "Project Name", Type.Missing);
             //project.DefaultStartTime = "2016/01/01";
             //project.ProjectStart = "01/01/2016 8:00AM";
             for (int iTaskIndex = 1; iTaskIndex <= ActivityList.Count; iTaskIndex++)

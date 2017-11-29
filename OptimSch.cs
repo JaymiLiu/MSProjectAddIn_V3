@@ -14,20 +14,38 @@ namespace GFabAddIn
 {
     class OptimSch
     {
+        public class MSprojectLayout
+        {
+            public int projectID;
+            public string girderName;
+            public int activityStartID; //ms project line ID;
+            public int activityEndID; //ms project line ID;
+
+            public MSprojectLayout(int pID, string gName, int startID, int endID)
+            {
+                projectID = pID;
+                girderName = gName;
+                activityStartID = startID;
+                activityEndID = endID;
+            }
+        }
         public class MSprojectInfo
         {
             public string startDate;
             public int nbProj;
             public int projLevel;
+            public int girderLevel;
             public int actLevel;
             public int nbRsrc;
             public List<int> RsrcLimit;
+            public List<MSprojectLayout> msprojectLayout;
             
 
-            public MSprojectInfo(string date, int ProjLevel, int ActLevel, int NbRsrc, List<int> Rsrclimit)
+            public MSprojectInfo(string date, int ProjLevel, int girderL, int ActLevel, int NbRsrc, List<int> Rsrclimit)
             {
                 startDate = date;
                 projLevel = ProjLevel;
+                girderLevel = girderL;
                 actLevel = ActLevel;
                 nbRsrc = NbRsrc;
                 RsrcLimit = Rsrclimit;
@@ -59,17 +77,42 @@ namespace GFabAddIn
                 MSprojectLineID = lineID;
             }
         }
-        private class ongoingTask
+        public class finishedTask
         {
-            int schedStartTime;
-            int duration;
-            List<int> RsrcList;
+            public int MSProjectLineID;
+            public string schedStartTime;
+
+            public finishedTask(int ID, string time)
+            {
+                MSProjectLineID = ID;
+                schedStartTime = time;
+            }
+        }
+        public class ongoingTask
+        {
+            public int projectID;
+            public string taskName;
+            public int MSprojectLineID;
+            public string schedStartTime;
+            public int duration;
+            public List<int> RsrcList;
+
+            public ongoingTask(int projID, string name, int lineID, int dur, string startTime, List<int> tempRsrc)
+            {
+                projectID = projID;
+                taskName = name;
+                MSprojectLineID = lineID;
+                duration = dur;
+                schedStartTime = startTime;
+                RsrcList = tempRsrc;
+            }
         }
 
         public class ActivityList
         {
             public int projID;
             public string girderName;
+            public string girderLine;
             public string activityName;
             public int MSprojectLineID;
             public int duration;
@@ -77,18 +120,12 @@ namespace GFabAddIn
             public int deadline;
             //public int nbRsrc;
             public List<int> RsrcList;
-
-            public ActivityList(int pID, string gName, string aName, int lineID)
+            
+            public ActivityList(int pID, string gName, string aName, int lineID, int aDuration, int dtime, List<int> rsrcList)
             {
                 projID = pID;
                 girderName = gName;
-                activityName = aName;
-                MSprojectLineID = lineID;
-               
-            }
-            public ActivityList(int pID, string aName, int lineID, int aDuration, int dtime, List<int> rsrcList)
-            {
-                projID = pID;
+                
                 activityName = aName;
                 MSprojectLineID = lineID;
                 duration = aDuration;
@@ -100,16 +137,28 @@ namespace GFabAddIn
         public class ordering {
             //record the precedessor for scheduling
             public int pre;
+            public string preGiderName;
+            public string preGirderLine;
+            public int preProID;
+            public int preFlag; // indicate if the pre activity is the first activity in one girder fabrication
             public int succ;
+            public string succGiderName;
+            public string succGirderLine;
+            public int succProID;
+            public int succFlag;// indicate if the pre activity is the first activity in one girder fabrication
             public string type; // relationship type
             public int lag;
 
-            public ordering(int pred, int succe, string rType, int lagT) {
-                pre = pred;
-                succ = succe;
+            public ordering(int preID, int succID, int succPID, string succGName, string succGLine, string rType, int lagT) {
+                pre = preID;
+                succProID = succPID;
+                succGiderName = succGName;
+                succGirderLine = succGLine;
+                succ = succID;
                 type = rType;
                 lag = lagT;
             }
+            
         }
 
         private static int GetNumberOfWorkingDays(DateTime start, DateTime stop)
@@ -118,6 +167,19 @@ namespace GFabAddIn
             while (start <= stop)
             {
                 if (start.DayOfWeek != DayOfWeek.Saturday && start.DayOfWeek != DayOfWeek.Sunday)
+                {
+                    ++days;
+                }
+                start = start.AddDays(1);
+            }
+            return days;
+        }
+        private static int GetNumberOfNonWorkingDays(DateTime start, DateTime stop)
+        {
+            int days = 0;
+            while (start <= stop)
+            {
+                if (start.DayOfWeek == DayOfWeek.Saturday || start.DayOfWeek == DayOfWeek.Sunday)
                 {
                     ++days;
                 }
@@ -198,37 +260,176 @@ namespace GFabAddIn
             return girderList;
         }
 
-        private void ReadActName(MSProject.Project project, List<ActivityList> actList, List<ordering> orders, MSprojectInfo projInfo)
+        public void addFactorsTOordering(MSProject.Project project, List<ordering> orders, List<MSprojectLayout> msprojectLayout)
+        {
+            for (int i = 0; i < orders.Count; i++)
+            {
+                MSProject.Task t = project.Tasks[orders[i].pre];
+                orders[i].preGirderLine = t.Text3;
+                for (int j = 0; j < msprojectLayout.Count; j++)
+                {
+                    if (orders[i].pre >= msprojectLayout[j].activityStartID && orders[i].pre <= msprojectLayout[j].activityEndID)
+                    {
+                        if (orders[i].pre == msprojectLayout[j].activityStartID)
+                            orders[i].preFlag = 1;
+                        else
+                            orders[i].preFlag = 0;
+                        orders[i].preProID = msprojectLayout[j].projectID;
+                        orders[i].preGiderName = msprojectLayout[j].girderName;
+                    }
+                    
+                }
+            }
+            for (int i = 0; i < orders.Count; i++)
+            {
+                for (int j = 0; j < msprojectLayout.Count; j++)
+                {
+                    if (orders[i].succ == msprojectLayout[j].activityStartID)
+                    {
+                        orders[i].succFlag = 1;
+                        break;
+                    }
+                        
+                    else
+                        orders[i].succFlag = 0;
+                }
+            }
+        }
+
+        public int GetDeadline(MSProject.Task t, MSProject.Project project)
+        {
+            int deadline; 
+            // if the deadline is not set to a project, deadline is set to the maxvalue of int.
+            if (t.Deadline.ToString() == "NA")
+                deadline = int.MaxValue;
+            else
+            {
+                // for each working day = 8*60 = 480, in minutes
+                deadline = 480 * GetNumberOfWorkingDays(project.ProjectStart, Convert.ToDateTime(t.Deadline));
+            }
+            return deadline;
+        }
+
+        private void ConstructMsProjectLayout(MSProject.Task t, int count, ref int startID, ref int lastPID, int projID, ref string girderName, List<MSprojectLayout> msprojectLayout)
+        {
+            if (count == 1)
+            {
+                startID = t.ID + 1;
+                girderName = t.Name;
+                lastPID = projID;
+            }
+            else
+            {
+                if (lastPID == projID)
+                {
+                    MSprojectLayout temp = new MSprojectLayout(projID, girderName, startID, t.ID - 1);
+                    msprojectLayout.Add(temp);
+                }
+                else
+                {
+                    MSprojectLayout temp = new MSprojectLayout(projID - 1, girderName, startID, t.ID - 2);
+                    msprojectLayout.Add(temp);
+                    lastPID = projID;
+                }
+
+                girderName = t.Name;
+                startID = t.ID + 1;
+            }
+        }
+
+        private int[] GetRsrcRequirement(MSProject.Task t, int nbRsrc)
+        {
+            //initial the list with n of 0
+            int[] tempRsrc = Enumerable.Repeat(0, nbRsrc).ToArray();
+            //construct resource list
+            switch (t.Text1)
+            {
+                case "1. Preparation":
+                    tempRsrc[0] = 1;
+                    break;
+                case "2. Girder Assembly":
+                    tempRsrc[1] = 1;
+                    break;
+                case "3. Field Splice":
+                    tempRsrc[2] = 1;
+                    break;
+                case "5. Shipping":
+                    tempRsrc[3] = 1;
+                    break;
+            }
+            return tempRsrc;
+        }
+
+        private void ConstructOTaskList(MSProject.Task t, string startDate, List<ongoingTask> oTask, List<int> Rsrc, int projID)
+        {
+            DateTime Now = Convert.ToDateTime(startDate);
+            int days = GetNumberOfNonWorkingDays(t.Start, Now);
+            DateTime temp = t.Start.AddDays(days);
+            int remainingDur = t.Duration - (int)(Now - temp).TotalMinutes / 3;
+            ongoingTask tempOTask = new ongoingTask(projID, t.Name, t.ID, remainingDur, t.Start.ToString(), Rsrc);
+            oTask.Add(tempOTask);
+        }
+        private void ConstructOrderingList(MSProject.Task t, int projID, string girderName, List<ordering> orders)
+        {
+            string type;
+            int pre, lag;
+            for (int i = 0; i < t.Predecessors.Split(',').Length; i++)
+            {
+                if (t.Predecessors.Split(',')[i].Contains("SS"))
+                    type = "SS";
+                else if (t.Predecessors.Split(',')[i].Contains("SF"))
+                    type = "SF";
+                else if (t.Predecessors.Split(',')[i].Contains("FF"))
+                    type = "FF";
+                else
+                    type = "FS";
+
+                if (t.Predecessors.Split(',')[i].Contains("+"))
+                {
+                    pre = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i].Split('+')[0], "[^.0-9]", ""));
+                    lag = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i].Split('+')[1], "[^.0-9]", "")) * 24 * 60;
+
+                }
+
+                else
+                {
+                    pre = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i], "[^.0-9]", ""));
+                    lag = 0;
+                }
+
+                ordering tempOrder = new ordering(pre, t.ID, projID, girderName, t.Text3, type, lag);
+                orders.Add(tempOrder);
+            }
+        }
+
+
+        private void ReadActName(MSProject.Project project, List<finishedTask> endTaskList, List<ongoingTask> oTask, List<ActivityList> actList, List<ordering> orders, MSprojectInfo projInfo)
         {
             // New the project list
             ActivityList tempAct;
-            string name;
-            int lineID, duration;
-            
-            ordering tempOrder;
-            int pre, lag;
-            int succ;
-            string type;
-            int projID = 0;
-            
-            int deadline = 0;
+            string name, girderName = "G";
+            int lineID = 0, duration, projID = 0, deadline = 0;
             List<int> Rsrc = new List<int>();
+            List<MSprojectLayout> msprojectLayout = new List<MSprojectLayout>();
+            int startID = 1, count = 0, lastPID = 1;
             foreach (MSProject.Task t in project.Tasks)
-            {
+            {                               
+                //int endID = 1;
                 if ((t != null) && (t.OutlineLevel == projInfo.projLevel))
                 {
+                    //record the project ID and deadline at the project level
                     projID += 1;
-                    // if the deadline is not set to a project, deadline is set to the maxvalue of int.
-                    if (t.Deadline.ToString() == "NA")
-                        deadline = int.MaxValue;
-                    else
-                    {
-                        // for each working day = 8*60 = 480
-                        deadline = 480 * GetNumberOfWorkingDays(project.ProjectStart, Convert.ToDateTime(t.Deadline));
-                    }
+                    deadline = GetDeadline(t, project);
                 }
-                    
-                //project is the second most out summary task
+                // Read girder info
+                else if ((t != null) && (t.OutlineLevel == projInfo.girderLevel))
+                {
+                    //The first girder in the MS project file
+                    //count the total number of girders in the MS project file
+                    count++;
+                    ConstructMsProjectLayout(t, count, ref startID, ref lastPID, projID, ref girderName, msprojectLayout);                                      
+                }
+                //Read activity
                 else if ((t != null) && (t.OutlineLevel == projInfo.actLevel))
                 {
                     // construct activity list
@@ -236,64 +437,39 @@ namespace GFabAddIn
                     lineID = t.ID;
                     // 8 hours per day, 8*60
                     duration = t.Duration;
-                    
-                    succ = t.ID;
-                    int[] tempRsrc = Enumerable.Repeat(0, projInfo.nbRsrc).ToArray();
-                    //construct resource list
-                    switch (t.Text1)
-                    {
-                        case "1. Preparation":
-                            tempRsrc[0] = 1;
-                            break;
-                        case "2. Girder Assembly":
-                            tempRsrc[1] = 1;
-                            break;
-                        case "3. Field Splice":
-                            tempRsrc[2] = 1;
-                            break;
-                        case "5. Shipping":
-                            tempRsrc[3] = 1;
-                            break;
-                    }
-                    Rsrc = tempRsrc.ToList();
+                    Rsrc = GetRsrcRequirement(t, projInfo.nbRsrc).ToList();                    
 
-                    tempAct = new ActivityList(projID, name, lineID, duration, deadline, tempRsrc.ToList());
-                    actList.Add(tempAct);
+                    if (t.Finish > Convert.ToDateTime(projInfo.startDate) && t.Start < Convert.ToDateTime(projInfo.startDate))
+                    {
+                        ConstructOTaskList(t, projInfo.startDate, oTask, Rsrc, projID);
+                    }
+                    else if (t.Start > Convert.ToDateTime(projInfo.startDate))
+                    {
+                        //construction unstarted tasks list
+                        tempAct = new ActivityList(projID, girderName, name, lineID, duration, deadline, Rsrc);
+                        actList.Add(tempAct);
+                    }
+                    else if (t.Finish < Convert.ToDateTime(projInfo.startDate))
+                    {
+                        //construction finished task list
+                        finishedTask tempFTask = new finishedTask(lineID, t.Start.ToString());
+                        endTaskList.Add(tempFTask);
+                    }
 
                     //construct ordering list
-                    if (t.Predecessors != "") {
-                        for (int i = 0; i < t.Predecessors.Split(',').Length; i++)
-                        {
-                            if (t.Predecessors.Split(',')[i].Contains("SS"))
-                                type = "SS";
-                            else if (t.Predecessors.Split(',')[i].Contains("SF"))
-                                type = "SF";
-                            else if (t.Predecessors.Split(',')[i].Contains("FF"))
-                                type = "FF";
-                            else
-                                type = "FS";
-
-                            if (t.Predecessors.Split(',')[i].Contains("+"))
-                            {
-                                pre = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i].Split('+')[0], "[^.0-9]", ""));
-                                lag = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i].Split('+')[1], "[^.0-9]", ""));
-
-                            }
-
-                            else
-                            {
-                                pre = Convert.ToInt32(Regex.Replace(t.Predecessors.Split(',')[i], "[^.0-9]", ""));
-                                lag = 0;
-                            }
-                            tempOrder = new ordering(pre, succ, type, lag);
-                            orders.Add(tempOrder);
-                        }
+                    if (t.Predecessors != "")
+                    {
+                        ConstructOrderingList(t, projID, girderName, orders);
                     }
                 }
             }
+            MSprojectLayout tempLayout = new MSprojectLayout(projID, girderName, startID, lineID);
+            msprojectLayout.Add(tempLayout);
+            projInfo.msprojectLayout = msprojectLayout;
+            addFactorsTOordering(project, orders, projInfo.msprojectLayout);
             projInfo.nbProj = projID;
         }
-        private void OptimizationEngine(MSProject.Project project, List<ActivityList> activityList, List<ordering> orders, MSprojectInfo projInfo)
+        private void OptimizationEngine(MSProject.Project project, List<ongoingTask> oTask, List<ActivityList> activityList, List<ordering> orders, MSprojectInfo projInfo)
         {
             CP cp = new CP();
 
@@ -303,8 +479,11 @@ namespace GFabAddIn
             List<IIntExpr> ends = new List<IIntExpr>();
             List<IIntervalVar> allTasks = new List<IIntervalVar>();
 
+            // ongoing tasks number
+            int nbOTasks = oTask.Count();
+            // Togo tasks number
             int nbTasks = activityList.Count();
-            IIntervalVar[] tasks = new IIntervalVar[nbTasks];
+            IIntervalVar[] tasks = new IIntervalVar[nbTasks + nbOTasks];
             //List<IIntervalVar>[] modes = new List<IIntervalVar>[nbTasks];
             string name;
 
@@ -315,8 +494,8 @@ namespace GFabAddIn
             int[] capacities = new int[nbResources];
             ICumulFunctionExpr[] RsrcUsages = new ICumulFunctionExpr[nbResources];
 
-            //Initial 
-            for (int i = 0; i < nbTasks; i++)
+            // declare tasks variables 
+            for (int i = 0; i < nbOTasks + nbTasks; i++)
             {
                 tasks[i] = cp.IntervalVar();
                 //modes[i] = new List<IIntervalVar>();
@@ -329,12 +508,31 @@ namespace GFabAddIn
                 RsrcUsages[j] = cp.CumulFunctionExpr();
             }
 
+            // Initial ongoing tasks
+            for (int i = 0; i < nbOTasks; i++)
+            {
+                name = oTask[i].MSprojectLineID.ToString();
+                int d = oTask[i].duration;
+
+                IIntervalVar task = tasks[i];
+                task.Name = name;
+                task.SizeMax = d;
+                task.SizeMin = d;
+                ends.Add(cp.EndOf(task));
+
+                for (int j = 0; j < nbResources; j++)
+                {
+                    RsrcUsages[j].Add(cp.Pulse(0, d, oTask[i].RsrcList[j]));
+                }
+            }
+
             //define tasks and number of modes
-            for (int i = 0; i < nbTasks; ++i)
+            for (int i = 0; i < nbTasks; i++)
             {
                 name = activityList[i].MSprojectLineID.ToString();
-                IIntervalVar task = tasks[i];
                 int d = activityList[i].duration;
+
+                IIntervalVar task = tasks[i + nbOTasks];
                 task.Name = name;
                 task.SizeMax = d;
                 task.SizeMin = d;
@@ -352,36 +550,53 @@ namespace GFabAddIn
             for (int i = 0; i < orders.Count; i++)
             {
                 IIntervalVar preTask = tasks[0], succTask = tasks[0];
-                for (int j = 0; j < nbTasks; j++)
+                string preGLine = "G", succGLine = "G";
+                int prePID = 0, succPID = 0, preFlag = 0, succFlag = 0;
+                int count = 0;
+                for (int j = 0; j < nbTasks + nbOTasks; j++)
                 {
-                    int count = 0;
+                    
                     if (tasks[j].Name == orders[i].pre.ToString())
                     {
-                        preTask = tasks[j];
+                        preTask = tasks[j];                        
                         count += 1;
                     }
                     else if (tasks[j].Name == orders[i].succ.ToString()) {
-                        succTask = tasks[j];
+                        succTask = tasks[j];                        
                         count += 1;
                     }
                     if (count == 2)
+                    {
+                        count = 0;
+                        preGLine = orders[i].preGirderLine;
+                        prePID = orders[i].preProID;
+                        preFlag = orders[i].preFlag;
+                        succGLine = orders[i].succGirderLine;
+                        succPID = orders[i].succProID;
+                        succFlag = orders[i].succFlag;
+                        switch (orders[i].type)
+                        {
+                            case "FS":
+                                    cp.Add(cp.EndBeforeStart(preTask, succTask, orders[i].lag));
+                                break;
+                            case "SS":
+                                if (preFlag == 1 && succFlag == 1 && preGLine == succGLine && prePID == succPID)
+                                    cp.Add(cp.EndAtStart(preTask, succTask));
+                                else
+                                    cp.Add(cp.StartBeforeStart(preTask, succTask, orders[i].lag));
+                                break;
+                            case "FF":
+                                cp.Add(cp.EndBeforeEnd(preTask, succTask, orders[i].lag));
+                                break;
+                            case "SF":
+                                cp.Add(cp.StartBeforeEnd(preTask, succTask, orders[i].lag));
+                                break;
+                        }
                         break;
+                    }
+                       
                 }
-                switch (orders[i].type)
-                {
-                    case "FS":
-                        cp.Add(cp.EndBeforeStart(preTask, succTask, orders[i].lag));
-                        break;
-                    case "SS":
-                        cp.Add(cp.StartBeforeStart(preTask, succTask, orders[i].lag));
-                        break;
-                    case "FF":
-                        cp.Add(cp.EndBeforeEnd(preTask, succTask, orders[i].lag));
-                        break;
-                    case "SF":
-                        cp.Add(cp.StartBeforeEnd(preTask, succTask, orders[i].lag));
-                        break;
-                }
+                
                 
             }
 
@@ -403,14 +618,17 @@ namespace GFabAddIn
             for (int j = 0; j < projInfo.nbProj; j++)
             {
                 IIntExpr endProj = ends[0];
-                for (int i = 0; i < nbTasks; i++)
+                int deadline = 0;
+                for (int i = 0; i < nbTasks ; i++)
                 {
                     if (activityList[i].projID == j + 1)
                     {
-                        endProj = cp.Max(endProj, ends[i]);
+                        endProj = cp.Max(endProj, ends[i + nbOTasks]);
+                        deadline = activityList[i].deadline;
                     }
-                    delay = cp.Sum(delay, cp.Abs(cp.Diff(endProj, activityList[i].deadline)));
+                   
                 }
+                delay = cp.Sum(delay, cp.Abs(cp.Diff(endProj, deadline)));
             }
             
 
@@ -423,13 +641,21 @@ namespace GFabAddIn
             {
                 //MessageBox.Show("optimization solved!");
                 //Console.WriteLine("Solution with objective " + cp.ObjValue + ":");
+                //for (int i = nbOTasks; i < nbTasks + nbOTasks; i++)
+                //{
+                //    // sp.girders[i].SchedStart = cp.GetStart(tasks[i]).ToString();
+                //    //  string test = cp.GetDomain(tasks[i]);
+
+                //    activityList[i].startTime = cp.GetStart(tasks[i]);
+
+                //}
 
                 for (int i = 0; i < nbTasks; i++)
                 {
                     // sp.girders[i].SchedStart = cp.GetStart(tasks[i]).ToString();
                     //  string test = cp.GetDomain(tasks[i]);
 
-                    activityList[i].startTime = cp.GetStart(tasks[i]);
+                    activityList[i].startTime = cp.GetStart(tasks[i + nbOTasks]);
 
                 }
                 //System.IO.File.WriteAllText(@"C:\Users\Public\Resource.txt", RsrcUsages.ToArray().ToString());
@@ -440,8 +666,7 @@ namespace GFabAddIn
             }
         }
 
-        private void WriteOptiResult(MSProject.Project project, List<ActivityList> activityList) {
-            //DateTime today = DateTime.Now;
+        private void WriteTodoTask(MSProject.Project project, List<ActivityList> activityList, MSprojectInfo projInfo) {
             int startLine = 1;
             for (int i = 0; i < activityList.Count; i++)
             {
@@ -450,7 +675,7 @@ namespace GFabAddIn
                     MSProject.Task t = project.Tasks[j];
                     if (t.ID == activityList[i].MSprojectLineID)
                     {
-                        string start = GetEndDaysIncludingNonWorkingDays(project.ProjectStart, activityList[i].startTime).ToString();
+                        string start = GetEndDaysIncludingNonWorkingDays(Convert.ToDateTime(projInfo.startDate), activityList[i].startTime).ToString();
                         t.Start = start;
                         startLine = t.ID;
                         break;
@@ -458,19 +683,59 @@ namespace GFabAddIn
                 }
             }
         }
+
+        private void WriteEndedTask(MSProject.Project project, List<finishedTask> endTaskList, MSprojectInfo projInfo)
+        {
+            int startLine = 1;
+            for (int i = 0; i < endTaskList.Count; i++)
+            {
+                for (int j = startLine; j <= project.Tasks.Count; j++)
+                {
+                    MSProject.Task t = project.Tasks[j];
+                    if (t.ID == endTaskList[i].MSProjectLineID)
+                    {
+                        t.Start = endTaskList[i].schedStartTime;
+                        startLine = t.ID;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void WriteOngoingTask(MSProject.Project project, List<ongoingTask> oTask, MSprojectInfo projInfo)
+        {
+            int startLine = 1;
+            for (int i = 0; i < oTask.Count; i++)
+            {
+                for (int j = startLine; j <= project.Tasks.Count; j++)
+                {
+                    MSProject.Task t = project.Tasks[j];
+                    if (t.ID == oTask[i].MSprojectLineID)
+                    {
+                        t.Start = oTask[i].schedStartTime;
+                        startLine = t.ID;
+                        break;
+                    }
+                }
+            }
+        }
+        private void WriteOptiResult(MSProject.Project project, List<finishedTask> endTaskList, List<ongoingTask> oTask, List<ActivityList> activityList, MSprojectInfo projInfo) {
+            //DateTime today = DateTime.Now;
+            WriteTodoTask(project, activityList, projInfo);
+            //WriteEndedTask(project, endTaskList, projInfo);
+            //WriteOngoingTask(project, oTask, projInfo);
+        }
+
         public void OptimizationSch(MSProject.Project project, MSprojectInfo projInfo)
         {
 
             List<ordering> orders = new List<ordering>();
             List<ActivityList> activityList = new List<ActivityList>();
-            ReadActName(project, activityList, orders, projInfo);
-            OptimizationEngine(project, activityList, orders, projInfo);
-            WriteOptiResult(project, activityList);
-            //Read Resource requirements from MS project
-
-           
-            int test = activityList.Count;
-
+            List<ongoingTask> oTask = new List<ongoingTask>();
+            List<finishedTask> endTaskList = new List<finishedTask>();
+            ReadActName(project, endTaskList, oTask, activityList, orders, projInfo);
+            OptimizationEngine(project, oTask, activityList, orders, projInfo);
+            WriteOptiResult(project, endTaskList, oTask, activityList, projInfo);
         }
     }
 

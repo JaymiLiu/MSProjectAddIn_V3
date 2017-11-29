@@ -35,6 +35,8 @@
             this.ActLevel = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.MSProjStartDate = new System.Windows.Forms.DateTimePicker();
+            this.gLevel = new System.Windows.Forms.TextBox();
+            this.label4 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // button1
@@ -69,7 +71,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(13, 60);
+            this.label2.Location = new System.Drawing.Point(13, 90);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(200, 13);
             this.label2.TabIndex = 3;
@@ -77,7 +79,7 @@
             // 
             // ActLevel
             // 
-            this.ActLevel.Location = new System.Drawing.Point(317, 57);
+            this.ActLevel.Location = new System.Drawing.Point(317, 87);
             this.ActLevel.Name = "ActLevel";
             this.ActLevel.Size = new System.Drawing.Size(78, 20);
             this.ActLevel.TabIndex = 4;
@@ -87,7 +89,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(13, 105);
+            this.label3.Location = new System.Drawing.Point(13, 131);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(267, 26);
             this.label3.TabIndex = 5;
@@ -97,16 +99,36 @@
             // MSProjStartDate
             // 
             this.MSProjStartDate.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this.MSProjStartDate.Location = new System.Drawing.Point(286, 105);
+            this.MSProjStartDate.Location = new System.Drawing.Point(286, 131);
             this.MSProjStartDate.Name = "MSProjStartDate";
             this.MSProjStartDate.Size = new System.Drawing.Size(109, 20);
             this.MSProjStartDate.TabIndex = 6;
+            // 
+            // gLevel
+            // 
+            this.gLevel.Location = new System.Drawing.Point(316, 59);
+            this.gLevel.Name = "gLevel";
+            this.gLevel.Size = new System.Drawing.Size(78, 20);
+            this.gLevel.TabIndex = 8;
+            this.gLevel.Text = "2";
+            this.gLevel.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(12, 62);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(145, 13);
+            this.label4.TabIndex = 7;
+            this.label4.Text = "Level for girder in MS project:";
             // 
             // Optim
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(422, 357);
+            this.Controls.Add(this.gLevel);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.MSProjStartDate);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.ActLevel);
@@ -130,5 +152,7 @@
         private System.Windows.Forms.TextBox ActLevel;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.DateTimePicker MSProjStartDate;
+        private System.Windows.Forms.TextBox gLevel;
+        private System.Windows.Forms.Label label4;
     }
 }
